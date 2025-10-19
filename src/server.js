@@ -29,7 +29,7 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// CORS configuration - more permissive for bytexl deployment
+// CORS configuration
 const corsOptions = {
   origin: true, // Reflect the origin
   credentials: true,
@@ -40,16 +40,16 @@ const corsOptions = {
 
 // Middleware
 app.use(helmet());
-app.use(cors(corsOptions)); // Always use CORS with options
+app.use(cors(corsOptions));
 app.use(express.json());
 
-// Add logging middleware to see all requests
+// Logging middleware
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} ${req.url}`);
   next();
 });
 
-// Health check endpoint
+// Health check
 app.get("/api/health", (req, res) => {
   console.log('🏥 Health check endpoint hit');
   res.json({ 
@@ -58,15 +58,15 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// API Routes - MUST come BEFORE static file serving
-console.log('atedRoute registration...');
+// API Routes
+console.log('Registering API routes...');
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 
-// Add a specific route to verify API routes are working
+// Test route
 app.get("/api/test", (req, res) => {
   console.log('🧪 API test endpoint hit');
   res.json({ 
@@ -75,19 +75,19 @@ app.get("/api/test", (req, res) => {
   });
 });
 
-// Serve frontend static files - MUST come AFTER API routes
+// Serve frontend static files
 const distPath = path.join(__dirname, "dist");
 app.use(express.static(distPath, { 
   maxAge: '1d',
   etag: false
 }));
 
-// SPA fallback: serve index.html for all non-API routes
+// SPA fallback
 app.get(/^\/(?!api).*/, (req, res) => {
   console.log('🌐 Serving index.html for:', req.url);
   res.sendFile(path.join(distPath, "index.html"), (err) => {
     if (err) {
-      console.log('⚠️  index.html not found, API-only mode');
+      console.log('⚠️  index.html not found - API-only mode');
       res.status(404).json({ 
         message: 'Frontend files not found. API-only mode.',
         apiDocs: '/api/health'
@@ -99,13 +99,14 @@ app.get(/^\/(?!api).*/, (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
+// Bind server to 0.0.0.0 for Render
 const PORT = process.env.PORT || 5050;
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(
     `✅ Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`
   );
-  
-  // Check if dist directory exists
+
+  // Check if frontend dist exists
   import('fs').then(fs => {
     if (fs.existsSync(distPath)) {
       console.log(`📁 Serving frontend files from: ${distPath}`);
@@ -115,7 +116,7 @@ const server = app.listen(PORT, () => {
   });
 });
 
-// Handle server startup errors
+// Handle startup errors
 server.on('error', (err) => {
   console.error('❌ Server failed to start:', err);
 });
