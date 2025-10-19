@@ -1,9 +1,15 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { JWT_SECRET } from '../server.js'; // Use the loaded secret from server.js
 
 // Generate JWT
 const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, {
+    if (!JWT_SECRET) {
+        console.error('❌ JWT_SECRET is not defined!');
+        throw new Error('JWT secret is missing, cannot generate token');
+    }
+
+    return jwt.sign({ id }, JWT_SECRET, {
         expiresIn: '30d'
     });
 };
@@ -14,57 +20,42 @@ const generateToken = (id) => {
 const registerUser = async (req, res) => {
     try {
         const { username, email, password } = req.body;
+        console.log('🟢 Register attempt:', username, email);
 
         // Check if user already exists
         const userExists = await User.findOne({ $or: [{ email }, { username }] });
 
         if (userExists) {
+            console.log('⚠️ User already exists:', username, email);
             return res.status(400).json({
                 success: false,
                 message: 'User already exists with this email or username'
             });
         }
 
-        // Create user with proper password hashing (using new + save to trigger middleware)
-        const user = new User({
-            username,
-            email,
-            password
-        });
-
+        // Create user
+        const user = new User({ username, email, password });
         await user.save();
+        console.log('🟢 User created:', user._id);
 
-        if (user) {
-            const token = generateToken(user._id);
+        const token = generateToken(user._id);
+        console.log('🟢 Token generated:', token);
 
-            res.status(201).json({
-                success: true,
-                message: 'User registered successfully',
-                data: {
-                    user: {
-                        id: user._id,
-                        username: user.username,
-                        email: user.email,
-                        role: user.role
-                    },
-                    token
-                }
-            });
-        } else {
-            res.status(400).json({
-                success: false,
-                message: 'Invalid user data'
-            });
-        }
+        res.status(201).json({
+            success: true,
+            message: 'User registered successfully',
+            data: {
+                user: {
+                    id: user._id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role
+                },
+                token
+            }
+        });
     } catch (error) {
         console.error('Register user error:', error);
-        // Handle database connection errors specifically
-        if (error.message && error.message.includes('buffering timed out')) {
-            return res.status(503).json({
-                success: false,
-                message: 'Database connection unavailable. Please try again later.'
-            });
-        }
         res.status(500).json({
             success: false,
             message: error.message
@@ -78,14 +69,17 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
     try {
         const { username, password } = req.body;
+        console.log('🟢 Login attempt:', username);
 
-        // Check for user
         const user = await User.findOne({
             $or: [{ email: username }, { username }]
         });
 
         if (user && (await user.comparePassword(password))) {
+            console.log('🟢 User authenticated:', user._id);
+
             const token = generateToken(user._id);
+            console.log('🟢 Token generated:', token);
 
             res.json({
                 success: true,
@@ -101,6 +95,7 @@ const loginUser = async (req, res) => {
                 }
             });
         } else {
+            console.log('⚠️ Invalid credentials for user:', username);
             res.status(401).json({
                 success: false,
                 message: 'Invalid credentials'
@@ -108,13 +103,6 @@ const loginUser = async (req, res) => {
         }
     } catch (error) {
         console.error('Login error:', error);
-        // Handle database connection errors specifically
-        if (error.message && error.message.includes('buffering timed out')) {
-            return res.status(503).json({
-                success: false,
-                message: 'Database connection unavailable. Please try again later.'
-            });
-        }
         res.status(500).json({
             success: false,
             message: error.message
@@ -149,13 +137,6 @@ const getUserProfile = async (req, res) => {
         }
     } catch (error) {
         console.error('Get profile error:', error);
-        // Handle database connection errors specifically
-        if (error.message && error.message.includes('buffering timed out')) {
-            return res.status(503).json({
-                success: false,
-                message: 'Database connection unavailable. Please try again later.'
-            });
-        }
         res.status(500).json({
             success: false,
             message: error.message
@@ -173,11 +154,7 @@ const updateUserProfile = async (req, res) => {
         if (user) {
             user.username = req.body.username || user.username;
             user.email = req.body.email || user.email;
-
-            // Only update password if provided
-            if (req.body.password) {
-                user.password = req.body.password;
-            }
+            if (req.body.password) user.password = req.body.password;
 
             const updatedUser = await user.save();
 
@@ -201,13 +178,6 @@ const updateUserProfile = async (req, res) => {
         }
     } catch (error) {
         console.error('Update profile error:', error);
-        // Handle database connection errors specifically
-        if (error.message && error.message.includes('buffering timed out')) {
-            return res.status(503).json({
-                success: false,
-                message: 'Database connection unavailable. Please try again later.'
-            });
-        }
         res.status(500).json({
             success: false,
             message: error.message
