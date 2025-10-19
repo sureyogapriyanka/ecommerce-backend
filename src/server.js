@@ -130,5 +130,6 @@ server.on('error', (err) => {
   console.error('❌ Server failed to start:', err);
 });
 
+// Export JWT_SECRET for auth usage
 export { JWT_SECRET };
 export default app;
