@@ -79,6 +79,14 @@ const productSchema = new mongoose.Schema({
             height: String
         },
         freeShipping: Boolean
+    },
+    featured: {
+        type: Boolean,
+        default: false
+    },
+    deals: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true
