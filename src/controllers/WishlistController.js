@@ -2,13 +2,16 @@ import Wishlist from '../models/Wishlist.js';
 import Product from '../models/Product.js';
 import User from '../models/User.js';
 
+// Fields to populate for products in wishlist
+const productFields = 'id name price images rating reviewCount inStock category subcategory';
+
 // @desc    Get user's wishlist
 // @route   GET /api/wishlist
 // @access  Private
 const getWishlist = async (req, res) => {
     try {
         const wishlistItems = await Wishlist.find({ user: req.user.id })
-            .populate('product', 'id name price images rating reviewCount inStock');
+            .populate('product', productFields);
 
         res.json({
             success: true,
@@ -59,7 +62,7 @@ const addToWishlist = async (req, res) => {
         });
 
         // Populate product details
-        await wishlistItem.populate('product', 'id name price images rating reviewCount inStock');
+        await wishlistItem.populate('product', productFields);
 
         res.status(201).json({
             success: true,
@@ -79,60 +82,46 @@ const addToWishlist = async (req, res) => {
 // @access  Private
 const removeFromWishlist = async (req, res) => {
     try {
-        console.log('=== REMOVE FROM WISHLIST DEBUG ===');
-        console.log('User ID from token:', req.user.id);
-        console.log('Requested item ID:', req.params.id);
-
-        // Try to find the wishlist item by ID
         let wishlistItem = await Wishlist.findById(req.params.id);
-        console.log('Found by _id:', wishlistItem ? wishlistItem._id : 'Not found');
 
-        // If not found by _id, try to find by user and product ID
+        // If not found by _id, try to find by user and product id
         if (!wishlistItem) {
-            console.log('Trying to find by user and product ID');
             const product = await Product.findOne({ id: req.params.id });
             if (product) {
                 wishlistItem = await Wishlist.findOne({
                     user: req.user.id,
                     product: product._id
                 });
-                console.log('Found by user and product ID:', wishlistItem ? wishlistItem._id : 'Not found');
             }
         }
 
         if (!wishlistItem) {
-            console.log('Wishlist item not found for ID:', req.params.id);
             return res.status(404).json({
                 success: false,
                 message: 'Wishlist item not found'
             });
         }
 
-        // Check if user owns this wishlist item
+        // Ensure user owns the wishlist item
         if (wishlistItem.user.toString() !== req.user.id) {
-            console.log('User authorization failed');
             return res.status(403).json({
                 success: false,
                 message: 'User not authorized'
             });
         }
 
-        console.log('Removing wishlist item:', wishlistItem._id);
         await Wishlist.findByIdAndDelete(wishlistItem._id);
 
-        // Get updated wishlist items
-        const updatedWishlistItems = await Wishlist.find({ user: req.user.id })
-            .populate('product', 'id name price images rating reviewCount inStock');
-
-        console.log('Item removed successfully, updated wishlist items count:', updatedWishlistItems.length);
+        // Return updated wishlist
+        const updatedWishlist = await Wishlist.find({ user: req.user.id })
+            .populate('product', productFields);
 
         res.json({
             success: true,
             message: 'Product removed from wishlist',
-            items: updatedWishlistItems
+            items: updatedWishlist
         });
     } catch (error) {
-        console.error('Error removing wishlist item:', error);
         res.status(500).json({
             success: false,
             message: error.message
