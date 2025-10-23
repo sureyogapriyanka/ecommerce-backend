@@ -159,31 +159,51 @@ const getMyOrders = async (req, res) => {
 // @access  Private
 const getOrderById = async (req, res) => {
     try {
+        console.log('=== GET ORDER BY ID DEBUG ===');
+        console.log('Requested order ID:', req.params.id);
+        console.log('User ID:', req.user.id);
+        
         const order = await Order.findById(req.params.id);
+        
+        console.log('Found order:', order ? 'Yes' : 'No');
 
         if (!order) {
+            console.log('Order not found in database');
             return res.status(404).json({
                 success: false,
-                message: 'Order not found'
+                message: `Order with ID "${req.params.id}" not found`
             });
         }
 
         // Check if user owns this order
         if (order.userId.toString() !== req.user.id) {
+            console.log('User not authorized to view this order');
             return res.status(403).json({
                 success: false,
-                message: 'User not authorized'
+                message: 'User not authorized to view this order'
             });
         }
+        
+        // Add default values if not present
+        if (!order.status) order.status = 'pending';
+        if (!order.estimatedDeliveryDate) {
+            // Default to 3-5 days from now
+            const deliveryDate = new Date();
+            deliveryDate.setDate(deliveryDate.getDate() + 3 + Math.floor(Math.random() * 3));
+            order.estimatedDeliveryDate = deliveryDate;
+        }
 
+        console.log('Returning order:', order._id);
         res.json({
             success: true,
             order
         });
     } catch (error) {
+        console.error('=== GET ORDER BY ID ERROR ===');
+        console.error('Error:', error);
         res.status(500).json({
             success: false,
-            message: error.message
+            message: 'Internal server error while fetching order details'
         });
     }
 };
